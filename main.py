@@ -1,22 +1,33 @@
 import discord
-
-#imports the file with the token
+from riotwatcher import LolWatcher
+#imports the file with the API keys
 import config
 
+#creates an instance of the class "Client", which will act as
+#the connection to discord
 client = discord.Client()
 
 @client.event
 async def on_ready():
-    print("BOOSTED BOT IS ONLINE".format(client))
+    #prints in terminal
+    print("BOOSTED BOT IS ONLINE")
 
-@client.event
-async def on_message(message):
-    if message.author == client.user:
-        return
+#creates an instance of the class, LolWatcher    
+lol_watcher = LolWatcher(config.RIOT_API_KEY)
+my_region = "na1"
 
-    if message.content.startswith("?boosted"):
-        luka_counter = 0
-        spencer_counter = 0
-        await message.channel.send("haha")
 
-client.run(config.TOKEN)
+
+
+
+
+# @client.event
+# async def on_message(message):
+    #does nothing if message is outputted by the bot
+    # if message.author == client.user:
+    #     return
+
+    # if message.content.startswith("?boosted"):
+    #     await message.channel.send("haha")
+
+client.run(config.DISCORD_API_KEY)
