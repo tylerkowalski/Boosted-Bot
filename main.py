@@ -5,20 +5,13 @@ from discord.ext.commands import Bot
 import config
 
 #returns the JSON file with the summonder id # 
-def request_id(name):
+def get_id(name):
     output = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + name + "?api_key=" + config.RIOT_API_KEY)
     return(output.json())
 
-
-
-
-
-
-
-
-
-
-
+def get_ranked_data(ID):
+    output = requests.get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + ID + "?api_key=" + config.RIOT_API_KEY)
+    return(output.json())
 
 #creates an instance of the class "Bot", which will act as the connection to discord
 bot = Bot(command_prefix= "?")
@@ -31,9 +24,16 @@ async def on_ready():
 
 
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
-async def rank(ctx, league_name):
-    idJSON = request_id(league_name)
-    ID = idJSON["id"]
-    print(ID)
+async def ranked_stats(ctx, league_name):
+    idJSON = get_id(league_name)
+    ranked_dataJSON = get_ranked_data(idJSON["id"])
+    tier = ranked_dataJSON[0]["tier"]
+    division = ranked_dataJSON[0]["rank"]
+    wins = ranked_dataJSON[0]["wins"]
+    losses = ranked_dataJSON[0]["losses"]
+    win_percentage = float(wins) / (float(wins) + float(losses))
+
+    # await league_name.channel.send(league_name + " is " + tier + " " + division + "\n" + league_name + " has " + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\n smells like BOOOOOOOOOOOOOOOOOSTED")
+    print(wins)
 
 bot.run(config.DISCORD_API_KEY)
