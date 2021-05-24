@@ -6,7 +6,8 @@ import config
 
 #returns the JSON file with the summonder id # 
 def request_id(name):
-    return requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + name + "?api_key=" + config.RIOT_API_KEY)
+    output = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + name + "?api_key=" + config.RIOT_API_KEY)
+    return(output.json())
 
 
 
@@ -28,11 +29,11 @@ async def on_ready():
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
 
-#there exists an issue with taking in the username, need to debug
-@bot.command(name = "rank",)
-async def rank(ctx, *league_name):
+
+@bot.command(name = "rank", help = "find the current rank of an NA summoner")
+async def rank(ctx, league_name):
     idJSON = request_id(league_name)
-    ID = idJSON[league_name]["id"]
+    ID = idJSON["id"]
     print(ID)
 
 bot.run(config.DISCORD_API_KEY)
