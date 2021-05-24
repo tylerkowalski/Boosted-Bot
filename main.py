@@ -13,7 +13,7 @@ def get_ranked_data(ID):
     output = requests.get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + ID + "?api_key=" + config.RIOT_API_KEY)
     return(output.json())
 
-#creates an instance of the class "Bot", which will act as the connection to discord
+#creates an instance of the class "Bot", which will act as the connection to discord, and sets the trigger to "?"
 bot = Bot(command_prefix= "?")
 
 @bot.event
@@ -27,13 +27,11 @@ async def on_ready():
 async def ranked_stats(ctx, league_name):
     idJSON = get_id(league_name)
     ranked_dataJSON = get_ranked_data(idJSON["id"])
-    tier = ranked_dataJSON[0]["tier"]
-    division = ranked_dataJSON[0]["rank"]
-    wins = ranked_dataJSON[0]["wins"]
-    losses = ranked_dataJSON[0]["losses"]
-    win_percentage = float(wins) / (float(wins) + float(losses))
-
-    # await league_name.channel.send(league_name + " is " + tier + " " + division + "\n" + league_name + " has " + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\n smells like BOOOOOOOOOOOOOOOOOSTED")
-    print(wins)
+    tier = str(ranked_dataJSON[0]["tier"])
+    division = str(ranked_dataJSON[0]["rank"])
+    wins = str(ranked_dataJSON[0]["wins"])
+    losses = str(ranked_dataJSON[0]["losses"])
+    win_percentage = str(round(float(wins) / (float(wins) + float(losses)), 4))
+    await ctx.channel.send(league_name + " is " + tier + " " + division + "\n" + league_name + " has " + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\nsmells like BOOOOOOOOOOOOOOOOOSTED")
 
 bot.run(config.DISCORD_API_KEY)
