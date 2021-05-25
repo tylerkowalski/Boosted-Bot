@@ -24,16 +24,16 @@ async def on_ready():
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
 
-
+#command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
 async def ranked_stats(ctx, league_name):
     idJSON = get_id(league_name)
     ranked_dataJSON = get_ranked_data(idJSON["id"])
 
-    if str(ranked_dataJSON[0]["queueType"]) == "RANKED_SOLO_5x5":
-        index = 0
-    else:
-        index = 1
+#finds the index of the dictionary in the JSON file containing stats on solo queue
+    for k in range(len(ranked_dataJSON)):
+        if str(ranked_dataJSON[k]["queueType"]) == "RANKED_SOLO_5x5":
+            index = k
 
     tier = str(ranked_dataJSON[index]["tier"])
     division = str(ranked_dataJSON[index]["rank"])
@@ -41,6 +41,7 @@ async def ranked_stats(ctx, league_name):
     losses = str(ranked_dataJSON[index]["losses"])
     LP = str(ranked_dataJSON[index]["leaguePoints"])
     win_percentage = str(round((float(wins) / (float(wins) + float(losses))* 100), 2))
+
     await ctx.channel.send(league_name + " is " + tier + " " + division + " " + LP + "LP" + "\n" + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\nsmells like BOOOOOOOOOOOOOOOOOSTED")
 
 bot.run(config.DISCORD_API_KEY)
