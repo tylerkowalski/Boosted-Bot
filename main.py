@@ -29,11 +29,17 @@ async def on_ready():
 async def ranked_stats(ctx, league_name):
     idJSON = get_id(league_name)
     ranked_dataJSON = get_ranked_data(idJSON["id"])
-    tier = str(ranked_dataJSON[0]["tier"])
-    division = str(ranked_dataJSON[0]["rank"])
-    wins = str(ranked_dataJSON[0]["wins"])
-    losses = str(ranked_dataJSON[0]["losses"])
-    LP = str(ranked_dataJSON[0]["leaguePoints"])
+
+    if str(ranked_dataJSON[0]["queueType"]) == "RANKED_SOLO_5x5":
+        index = 0
+    else:
+        index = 1
+
+    tier = str(ranked_dataJSON[index]["tier"])
+    division = str(ranked_dataJSON[index]["rank"])
+    wins = str(ranked_dataJSON[index]["wins"])
+    losses = str(ranked_dataJSON[index]["losses"])
+    LP = str(ranked_dataJSON[index]["leaguePoints"])
     win_percentage = str(round((float(wins) / (float(wins) + float(losses))* 100), 2))
     await ctx.channel.send(league_name + " is " + tier + " " + division + " " + LP + "LP" + "\n" + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\nsmells like BOOOOOOOOOOOOOOOOOSTED")
 
