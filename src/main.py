@@ -51,7 +51,7 @@ async def recent_game_checker(boosted_bot_channel, most_recent_timestamp_SPENCER
             #parses through stats of every summoner in the game to find Spencer
             for i in range(9):
                 if new_game_match_dataJSON_SPENCER.json()["participants"][i]["championId"] == str(new_game_champion_id_SPENCER):
-                    if new_game_matchJSON_data_SPENCER.json()["participants"][i]["win"] == True:
+                    if new_game_match_dataJSON_SPENCER.json()["participants"][i]["win"] == True:
                         await boosted_bot_channel.send("Spencer just won a game!")
                     else:
                         await boosted_bot_channel.send("Spencer just lost another game!") 
