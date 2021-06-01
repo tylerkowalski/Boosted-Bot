@@ -9,10 +9,6 @@ import config
 #creates an instance of the class "Bot", which will act as the connection to discord, and sets the trigger to "?"
 bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_category = "Commands"))
 
-#intializes these timestamps to be used by most_recent_timestamp
-most_recent_timestamp_SPENCER = 0
-most_recent_timestamp_LUKA = 0
-
 
 #returns the JSON file with the summonder id # 
 def get_id(name):
@@ -24,13 +20,14 @@ def get_ranked_data(ID):
     return(output.json())
 
 #finds initial timestamps for Spencer and Luka's matchlists
-def most_recent_timestamp_finder(most_recent_timestamp_SPENCER, most_recent_timestamp_LUKA):
-    initial_JSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
-    most_recent_timestamp_SPENCER = initial_JSON_SPENCER.json()["matches"][0]["timestamp"]
-    initial_JSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
-    most_recent_timestamp_LUKA = initial_JSON_LUKA.json()["matches"][0]["timestamp"]
-    print(most_recent_timestamp_SPENCER)
-    print(most_recent_timestamp_LUKA)
+def most_recent_timestamp_finder(account_id):
+    initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
+    return initial_JSON.json()["matches"][0]["timestamp"]
+   
+
+#intializes these timestamps using most_recent_timestamp
+most_recent_timestamp_SPENCER = most_recent_timestamp_finder(config.SPENCER_ACCOUNT_ID)
+most_recent_timestamp_LUKA = most_recent_timestamp_finder(config.LUKA_ACCOUNT_ID)
 
 @tasks.loop(seconds = 4)
 async def recent_game_checker(boosted_bot_channel, most_recent_timestamp_SPENCER, most_recent_timestamp_LUKA):
@@ -39,10 +36,10 @@ async def recent_game_checker(boosted_bot_channel, most_recent_timestamp_SPENCER
     game_idJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_LUKA) + "&api_key=" + config.RIOT_API_KEY)
 
     try:
-        if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
+        if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] > most_recent_timestamp_SPENCER:
             
             #sets a new most recent timestamp
-            most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"] 
+            most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
 
             new_game_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["gameId"]
             new_game_champion_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["champion"]
@@ -57,7 +54,7 @@ async def recent_game_checker(boosted_bot_channel, most_recent_timestamp_SPENCER
                         await boosted_bot_channel.send("Spencer just lost another game!") 
                 break
 
-        elif game_idJSON_LUKA.json()["matches"][0]["timestamp"] != most_recent_timestamp_LUKA:
+        if game_idJSON_LUKA.json()["matches"][0]["timestamp"] > most_recent_timestamp_LUKA:
 
             #sets a new most recent timestamp
             most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
@@ -105,9 +102,6 @@ async def on_ready():
     
     #creates the output channel for the bot
     boosted_bot_channel = bot.get_channel(config.BOOSTED_BOT_CHANNEL_ID)
-
-    #finds the most recent timestamps for Luka and Spencer
-    most_recent_timestamp_finder(most_recent_timestamp_SPENCER, most_recent_timestamp_LUKA)
 
     #starts the game checking loop
     recent_game_checker.start(boosted_bot_channel, most_recent_timestamp_SPENCER, most_recent_timestamp_LUKA)
