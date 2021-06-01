@@ -64,7 +64,6 @@ async def recent_game_checker(most_recent_timestamp_SPENCER, most_recent_timesta
         #sets a new most recent timestamp
         most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"] 
 
-        # checks if there is a new game played, and if there is finds data regarding that match
         try:
             new_game_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["gameId"]
             new_game_champion_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["champion"]
@@ -87,7 +86,6 @@ async def recent_game_checker(most_recent_timestamp_SPENCER, most_recent_timesta
         #sets a new most recent timestamp
         most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
 
-        # checks if there is a new game played, and if there is finds data regarding that match
         try:
             new_game_id_LUKA = game_idJSON_LUKA.json()["matches"][0]["gameId"]
             new_game_champion_id_LUKA = game_idJSON_LUKA.json()["matches"][0]["champion"]
