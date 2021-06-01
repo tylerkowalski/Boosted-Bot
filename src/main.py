@@ -37,50 +37,45 @@ async def recent_game_checker(boosted_bot_channel, most_recent_timestamp_SPENCER
     print("checking...")
     game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + config.RIOT_API_KEY)
     game_idJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_LUKA) + "&api_key=" + config.RIOT_API_KEY)
-    if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
 
-        #sets a new most recent timestamp
-        most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"] 
+    try:
+        if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
+            
+            #sets a new most recent timestamp
+            most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"] 
 
-        try:
             new_game_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["gameId"]
             new_game_champion_id_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["champion"]
-            new_game_match_data_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + new_game_id_SPENCER + "?api_key=" + config.RIOT_API_KEY)
+            new_game_match_dataJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + new_game_id_SPENCER + "?api_key=" + config.RIOT_API_KEY)
         
             #parses through stats of every summoner in the game to find Spencer
             for i in range(9):
-                if new_game_match_data_SPENCER.json()["participants"][i]["championId"] == str(new_game_champion_id_SPENCER):
-                    if new_game_match_data_SPENCER.json()["participants"][i]["win"] == True:
+                if new_game_match_dataJSON_SPENCER.json()["participants"][i]["championId"] == str(new_game_champion_id_SPENCER):
+                    if new_game_matchJSON_data_SPENCER.json()["participants"][i]["win"] == True:
                         await boosted_bot_channel.send("Spencer just won a game!")
                     else:
                         await boosted_bot_channel.send("Spencer just lost another game!") 
                 break
 
-        except:
-            pass
+        elif game_idJSON_LUKA.json()["matches"][0]["timestamp"] != most_recent_timestamp_LUKA:
 
-    if game_idJSON_LUKA.json()["matches"][0]["timestamp"] != most_recent_timestamp_LUKA:
-        
-        #sets a new most recent timestamp
-        most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
+            #sets a new most recent timestamp
+            most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
 
-        try:
             new_game_id_LUKA = game_idJSON_LUKA.json()["matches"][0]["gameId"]
             new_game_champion_id_LUKA = game_idJSON_LUKA.json()["matches"][0]["champion"]
-            new_game_match_data_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id_LUKA) + "?api_key=" + config.RIOT_API_KEY)
+            new_game_match_dataJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id_LUKA) + "?api_key=" + config.RIOT_API_KEY)
 
             #parses through stats of every summoner in the game to find Luka
             for i in range(9):
-                if new_game_match_data_LUKA.json["participants"][i]["championId"] == new_game_champion_id_LUKA:
-                    if new_game_match_data_LUKA.json["participants"][i]["win"] == True:
+                if new_game_match_dataJSON_LUKA.json()["participants"][i]["championId"] == new_game_champion_id_LUKA:
+                    if new_game_match_dataJSON_LUKA.json()["participants"][i]["win"] == True:
                         await boosted_bot_channel.send("Luka just won a game!")
                     else:
                         await boosted_bot_channel.send("Luka just lost another game!") 
                 break
-            
-        except:
-            pass
-
+    except:
+        pass
 
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
@@ -122,7 +117,6 @@ async def on_ready():
 
 
 # boosted_bot_channel = bot.get_channel(config.BOOSTED_BOT_CHANNEL_ID)
-# current_time = time.time() * 1000
 # LUKA_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13" + "&api_key=" + config.RIOT_API_KEY)
 # print(len(LUKA_JSON.json()["matches"]))
 # # print(LUKA_JSON.json())
