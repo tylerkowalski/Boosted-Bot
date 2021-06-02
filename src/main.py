@@ -16,22 +16,17 @@ def most_recent_timestamp_finder(account_id):
 
 #called in recent_game_loop if a new ranked game has been detected
 async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
-    print("test2")
     new_game_id = game_idJSON.json()["matches"][0]["gameId"]
-    print(new_game_id)
     new_game_champion_id = game_idJSON.json()["matches"][0]["champion"]
     new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + config.RIOT_API_KEY)
-    print("test3")
     #parses through stats of every summoner in the game to find the desired summoner
     for i in range(10):
         print(new_game_match_dataJSON.json()["participants"][i]["championId"])
         print(new_game_champion_id)
         if new_game_match_dataJSON.json()["participants"][i]["championId"] == new_game_champion_id:
             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
-                print("test4")
                 await boosted_bot_channel.send(name + " just won a game!")
             else:
-                print("test5")
                 await boosted_bot_channel.send(name + " just lost another game!")
             break
 
@@ -39,7 +34,6 @@ async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
 most_recent_timestamp_SPENCER = most_recent_timestamp_finder(config.SPENCER_ACCOUNT_ID)
 most_recent_timestamp_LUKA = most_recent_timestamp_finder(config.LUKA_ACCOUNT_ID)
 
-most_recent_timestamp_SPENCER = 1622598779808
 @tasks.loop(seconds = 5)
 async def recent_game_loop(boosted_bot_channel):     
     print("checking...")
@@ -52,7 +46,6 @@ async def recent_game_loop(boosted_bot_channel):
     game_idJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_LUKA) + "&api_key=" + config.RIOT_API_KEY)
     try:
         if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
-            print("test1")
             #sets a new most recent timestamp
             most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
             await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
