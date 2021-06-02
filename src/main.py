@@ -21,8 +21,6 @@ async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
     new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + config.RIOT_API_KEY)
     #parses through stats of every summoner in the game to find the desired summoner
     for i in range(10):
-        print(new_game_match_dataJSON.json()["participants"][i]["championId"])
-        print(new_game_champion_id)
         if new_game_match_dataJSON.json()["participants"][i]["championId"] == new_game_champion_id:
             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
                 await boosted_bot_channel.send(name + " just won a game!")
