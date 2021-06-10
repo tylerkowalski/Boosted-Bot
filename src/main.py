@@ -1,14 +1,14 @@
+import asyncio
 import discord
-from discord.ext import commands, tasks
+from discord.ext import commands
 import requests
 from discord.ext.commands import Bot
 #imports the file with the API keys and other confidential information
 import config
 
 
-#creates an instance of the class "Bot", which will act as the connection to discord, and sets the trigger to "?"
+#creates an instance of the class "Bot", which will act as the connection to discord and sets the trigger to "?"
 bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_category = "Commands"))
-
 #finds initial timestamps for Spencer and Luka's matchlists
 def most_recent_timestamp_finder(account_id):
     initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
@@ -32,29 +32,31 @@ async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
 most_recent_timestamp_SPENCER = most_recent_timestamp_finder(config.SPENCER_ACCOUNT_ID)
 most_recent_timestamp_LUKA = most_recent_timestamp_finder(config.LUKA_ACCOUNT_ID)
 
-@tasks.loop(seconds = 5)
-async def recent_game_loop(boosted_bot_channel):     
-    print("checking...")
+#checks if there was a new game played every 5 seconds
+async def recent_game_loop(boosted_bot_channel):
+    while True:     
+        print("checking...")
 
-    #makes it so that these global variables can be changed by the function
-    global most_recent_timestamp_SPENCER
-    global most_recent_timestamp_LUKA
+        #makes it so that these global variables can be changed by the function
+        global most_recent_timestamp_SPENCER
+        global most_recent_timestamp_LUKA
 
-    game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + config.RIOT_API_KEY)
-    game_idJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_LUKA) + "&api_key=" + config.RIOT_API_KEY)
-    try:
-        if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
-            #sets a new most recent timestamp
-            most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
-            await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
+        game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + config.RIOT_API_KEY)
+        game_idJSON_LUKA = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + config.LUKA_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_LUKA) + "&api_key=" + config.RIOT_API_KEY)
+        try:
+            if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
+                #sets a new most recent timestamp
+                most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
+                await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
 
-        if game_idJSON_LUKA.json()["matches"][0]["timestamp"] != most_recent_timestamp_LUKA:
-            #sets a new most recent timestamp
-            most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
-            await recent_game_checker(game_idJSON_LUKA, "Luka", boosted_bot_channel)
+            if game_idJSON_LUKA.json()["matches"][0]["timestamp"] != most_recent_timestamp_LUKA:
+                #sets a new most recent timestamp
+                most_recent_timestamp_LUKA = game_idJSON_LUKA.json()["matches"][0]["timestamp"]
+                await recent_game_checker(game_idJSON_LUKA, "Luka", boosted_bot_channel)
 
-    except Exception as e:
-        print(e)
+        except Exception as e:
+            print(e)
+        await asyncio.sleep(5)
 
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
@@ -93,11 +95,11 @@ async def on_ready():
     #creates the output channel for the bot
     boosted_bot_channel = bot.get_channel(config.BOOSTED_BOT_CHANNEL_ID)
 
-    #starts the game checking loop
-    recent_game_loop.start(boosted_bot_channel)
+    #adds the game checking loop into the event loop
+    bot.loop.create_task(recent_game_loop(boosted_bot_channel))
     
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
 
-#starts the discord bot
+#connects the bot to discord and creates the event loop (bot)
 bot.run(config.DISCORD_API_KEY)
