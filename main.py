@@ -108,7 +108,6 @@ async def recent_game_loop(boosted_bot_channel):
         
         #makes it so that these global variables can be changed by the function
         global most_recent_timestamp_SPENCER
-        print(most_recent_timestamp_SPENCER)
         game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + resources.config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + resources.config.RIOT_API_KEY)
         try:
             if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
