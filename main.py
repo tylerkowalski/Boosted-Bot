@@ -1,5 +1,6 @@
 import asyncio
 import discord
+from discord.errors import DiscordServerError
 from discord.ext import commands
 import requests
 from discord.ext.commands import Bot
@@ -149,25 +150,45 @@ async def ranked_stats(ctx, league_name):
 
 @bot.command(name = "boosted_add", help = "add an NA summoner to the boosted checker")
 async def boosted_list_adder(ctx, league_name):
-    try:
-        idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
-        account_id = idJSON.json()["id"]
-        db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
-        cursor = db.cursor()
 
-        #need to make sure you can add the same person twice 
-        cursor.execute("SELECT * FROM boost_check WHERE summoner_name = ?", [league_name])
-        if cursor.fetchone() == "None":
-            cursor.execute("INSERT INTO boost_check VALUES (?, ?, ?, ?)", [league_name, account_id, 0, 0])
-            db.commit()
+    db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+    cursor = db.cursor()
+
+    #checks if summmoner is already in database
+    cursor.execute("SELECT * FROM boost_check WHERE summoner_name = ?", [league_name])
+    if cursor.fetchone() == None:
+        #checks if is a real NA summoner and finds account id
+        try:
+            idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
+            account_id = idJSON.json()["accountId"]        
+
+        except Exception as e:
+            print(e)
+            await ctx.channel.send("YOU ARE GAPPED! THAT IS NOT A LEGIT NA SUMMONER :<<<<")
+
             db.close()
-            await ctx.channel.send("I HAVE ADDED " + league_name + " TO THE BOOSTED CHECKER! B E W A R E")
-        else:
+            #stops execution of this function if not real summoner
+            return
+        
+        try:
+            print(account_id)
+            timestamp = most_recent_timestamp_finder(account_id)
+
+        except Exception as e:
+            print(e)
+            await ctx.channel.send("BOOSTED BOT IS INTING! COULD NOT FIND SUMMONER'S MOST RECENT GAME'S TIMESTAMP")
+
             db.close()
-            await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
-    except Exception as e:
-        print(e)
-        await ctx.channel.send("YOU ARE GAPPED! THAT IS NOT A LEGIT NA SUMMONER :<<<<")
+            #stops execution of this function if could not find timestamp
+            return
+        
+        cursor.execute("INSERT INTO boost_check VALUES (?, ?, ?, ?, ?)", [league_name, account_id, 0, 0, timestamp])
+        db.commit()
+        db.close()
+        await ctx.channel.send("I HAVE ADDED " + league_name + " TO THE BOOSTED CHECKER! B E W A R E")
+    else:
+        db.close()
+        await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
 
 @bot.event
 async def on_ready():
@@ -184,7 +205,8 @@ async def on_ready():
         summoner_name TEXT,
         account_id TEXT,
         current_boosted_score REAL,
-        number_of_games_analyzed INTEGER 
+        number_of_games_analyzed INTEGER,
+        timestamp INTEGER 
         )
             """)
     db.commit()
@@ -192,6 +214,8 @@ async def on_ready():
     #adds the game checking loop into the event loop
     bot.loop.create_task(recent_game_loop(boosted_bot_channel))
     
+    #need to update most recent timestamps on startup
+
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
 
