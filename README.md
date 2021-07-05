@@ -1,1 +1,1 @@
-This is an in-progress discord bot that will output the stats of my friend's League of Legends games using the Riot API and stores the respective data in a dictionary to give live analysis as to who is more boosted.
+This is an in-progress discord bot that will output the stats of my friend's League of Legends games using the Riot API and stores the respective data in a database to give live analysis as to who is more boosted.
