@@ -19,8 +19,6 @@ def most_recent_timestamp_finder(account_id):
     initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
     return initial_JSON.json()["matches"][0]["timestamp"]
 
-#intializes these timestamps 
-most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
 
 #called in recent_game_loop if a new ranked game has been detected
 async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
@@ -100,6 +98,8 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     #returns boosted score
     return boosted_score_kda_component + boosted_score_gold_diff_component
 
+#intializes these timestamps 
+most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
 
 #checks if there was a new game played every 5 seconds
 async def recent_game_loop(boosted_bot_channel):
@@ -156,9 +156,15 @@ async def boosted_list_adder(ctx, league_name):
         cursor = db.cursor()
 
         #need to make sure you can add the same person twice 
-        cursor.execute("INSERT INTO boost_check VALUES (?, ?, ?, ?)", [league_name, account_id, 0, 0])
-        db.commit()
-        await ctx.channel.send("I HAVE ADDED " + league_name + " TO THE BOOSTED CHECKER! B E W A R E")
+        cursor.execute("SELECT * FROM boost_check WHERE summoner_name = ?", [league_name])
+        if cursor.fetchone() == "None":
+            cursor.execute("INSERT INTO boost_check VALUES (?, ?, ?, ?)", [league_name, account_id, 0, 0])
+            db.commit()
+            db.close()
+            await ctx.channel.send("I HAVE ADDED " + league_name + " TO THE BOOSTED CHECKER! B E W A R E")
+        else:
+            db.close()
+            await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
     except Exception as e:
         print(e)
         await ctx.channel.send("YOU ARE GAPPED! THAT IS NOT A LEGIT NA SUMMONER :<<<<")
@@ -182,6 +188,7 @@ async def on_ready():
         )
             """)
     db.commit()
+    db.close()
     #adds the game checking loop into the event loop
     bot.loop.create_task(recent_game_loop(boosted_bot_channel))
     
