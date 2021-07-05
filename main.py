@@ -63,7 +63,7 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     player_kda = (player_kills + player_assists) / player_deaths
 
     #finds how the summoner's kda compares to average on team, gives +/- score dependent on worse/better kda
-    boosted_score_kda_component = round(0.5 * ((kda_avg / player_kda) - 1), 2)
+    boosted_score_kda_component = ((kda_avg / player_kda) - 1) * 100
 
     #finding average of gold/min deltas for summoner
     summoner_gold_per_min_sum = 0
@@ -94,10 +94,10 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     summoner_opponent_gold_per_min_avg = summoner_opponent_gold_per_min_sum / length_gold_per_min_deltas
 
     #finds how the summoner's gold compares to lane opponent, gives +/- score dependent on less/more gold
-    boosted_score_gold_diff_component = round(0.5 * ((summoner_opponent_gold_per_min_avg / summoner_gold_per_min_avg) - 1), 2)
+    boosted_score_gold_diff_component = ((summoner_opponent_gold_per_min_avg / summoner_gold_per_min_avg) - 1) * 100
 
     #returns boosted score
-    return boosted_score_kda_component + boosted_score_gold_diff_component
+    return round(boosted_score_kda_component + boosted_score_gold_diff_component, 4)
 
 #intializes these timestamps 
 most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
@@ -108,6 +108,7 @@ async def recent_game_loop(boosted_bot_channel):
         
         #makes it so that these global variables can be changed by the function
         global most_recent_timestamp_SPENCER
+        print(most_recent_timestamp_SPENCER)
         game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + resources.config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + resources.config.RIOT_API_KEY)
         try:
             if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
@@ -117,7 +118,7 @@ async def recent_game_loop(boosted_bot_channel):
 
         except Exception as e:
             print(e)
-        await asyncio.sleep(5)
+        await asyncio.sleep(10)
 
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
@@ -211,6 +212,7 @@ async def on_ready():
             """)
     db.commit()
     db.close()
+
     #adds the game checking loop into the event loop
     bot.loop.create_task(recent_game_loop(boosted_bot_channel))
     
