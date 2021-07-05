@@ -3,9 +3,14 @@ import discord
 from discord.ext import commands
 import requests
 from discord.ext.commands import Bot
+import sqlite3
+import os
 #imports the file with the API keys and other confidential information
 import resources.config
 
+#creates paths necessary to access the boost_checker database in the resources file
+CURRENT_DIR = os.path.dirname(__file__)
+BOOST_CHECKER_DIR_PATH = os.path.join(CURRENT_DIR, "resources", "boost_checker.db")
 
 #creates an instance of the class "Bot", which will act as the connection to discord and sets the trigger to "?"
 bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_category = "Commands"))
@@ -13,6 +18,9 @@ bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_cat
 def most_recent_timestamp_finder(account_id):
     initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
     return initial_JSON.json()["matches"][0]["timestamp"]
+
+#intializes these timestamps 
+most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
 
 #called in recent_game_loop if a new ranked game has been detected
 async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
@@ -93,10 +101,6 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     return boosted_score_kda_component + boosted_score_gold_diff_component
 
 
-
-#intializes these timestamps 
-most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
-
 #checks if there was a new game played every 5 seconds
 async def recent_game_loop(boosted_bot_channel):
     while True:     
@@ -143,6 +147,21 @@ async def ranked_stats(ctx, league_name):
         print(e)
         await ctx.channel.send("GIVE ME A REAL NA SUMMONER! BRAIN GAP LOLOLOLLOL")
 
+@bot.command(name = "boosted_add", help = "add an NA summoner to the boosted checker")
+async def boosted_list_adder(ctx, league_name):
+    try:
+        idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
+        account_id = idJSON.json()["id"]
+        db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+        cursor = db.cursor()
+
+        #need to make sure you can add the same person twice 
+        cursor.execute("INSERT INTO boost_check VALUES (?, ?, ?, ?)", [league_name, account_id, 0, 0])
+        db.commit()
+        await ctx.channel.send("I HAVE ADDED " + league_name + " TO THE BOOSTED CHECKER! B E W A R E")
+    except Exception as e:
+        print(e)
+        await ctx.channel.send("YOU ARE GAPPED! THAT IS NOT A LEGIT NA SUMMONER :<<<<")
 
 @bot.event
 async def on_ready():
@@ -151,6 +170,18 @@ async def on_ready():
     #creates the output channel for the bot
     boosted_bot_channel = bot.get_channel(resources.config.BOOSTED_BOT_CHANNEL_ID)
 
+    #creates boost_check database if not already existing in resources directory
+    db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+    cursor = db.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS boost_check(
+        summoner_name TEXT,
+        account_id TEXT,
+        current_boosted_score REAL,
+        number_of_games_analyzed INTEGER 
+        )
+            """)
+    db.commit()
     #adds the game checking loop into the event loop
     bot.loop.create_task(recent_game_loop(boosted_bot_channel))
     
