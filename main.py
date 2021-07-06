@@ -239,35 +239,43 @@ async def boosted_list_remover(ctx, *, league_name):
 async def boosted_leaderboard(ctx):
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
-    cursor.execute("SELECT summoner_name, number_of_games_analyzed, current_boosted_score FROM boost_check ORDER BY current_boosted_score DESC")
-    leaderboard_list = cursor.fetchall()
-    db.close()
 
-    #makes title
-    embed = discord.Embed(title = "Boosted Leaderboard")
+    #checks if anyone is in the database 
+    cursor.execute("SELECT * FROM boost_check")
+    if cursor.fetchall() == []:
+        await ctx.channel.send("NO ONE IS IS IN THE BOOST CHECKER YET, B-BAKA!")
     
-    #makes summoner name column 
-    summoner_name_section = ""
-    for k in range(len(leaderboard_list)):
-        summoner_name_section += leaderboard_list[k][0] + "\n"
+    else:
 
-    embed.add_field(name = "Summoner Name", value = summoner_name_section, inline = True)
+        cursor.execute("SELECT summoner_name, number_of_games_analyzed, current_boosted_score FROM boost_check ORDER BY current_boosted_score DESC")
+        leaderboard_list = cursor.fetchall()
+        db.close()
 
-    #makes number of games analyzed column
-    number_of_games_analyzed_section = ""
-    for k in range(len(leaderboard_list)):
-        number_of_games_analyzed_section += str(leaderboard_list[k][1]) + "\n"
+        #makes title
+        embed = discord.Embed(title = "Boosted Leaderboard")
     
-    embed.add_field(name = "# of Games Analyzed", value = number_of_games_analyzed_section, inline = True)
+        #makes summoner name column 
+        summoner_name_section = ""
+        for k in range(len(leaderboard_list)):
+            summoner_name_section += leaderboard_list[k][0] + "\n"
 
-    #makes boosted  score column
-    boosted_score_section = ""
-    for k in range(len(leaderboard_list)):
-        boosted_score_section += str(leaderboard_list[k][2]) + "\n"
+        embed.add_field(name = "Summoner Name", value = summoner_name_section, inline = True)
+
+        #makes number of games analyzed column
+        number_of_games_analyzed_section = ""
+        for k in range(len(leaderboard_list)):
+            number_of_games_analyzed_section += str(leaderboard_list[k][1]) + "\n"
     
-    embed.add_field(name = "Boosted Score", value = boosted_score_section, inline = True)
+        embed.add_field(name = "# of Games Analyzed", value = number_of_games_analyzed_section, inline = True)
 
-    await ctx.channel.send(embed = embed)
+        #makes boosted  score column
+        boosted_score_section = ""
+        for k in range(len(leaderboard_list)):
+            boosted_score_section += str(leaderboard_list[k][2]) + "\n"
+    
+        embed.add_field(name = "Boosted Score", value = boosted_score_section, inline = True)
+
+        await ctx.channel.send(embed = embed)
 
 
 @bot.event
