@@ -15,6 +15,7 @@ BOOST_CHECKER_DIR_PATH = os.path.join(CURRENT_DIR, "resources", "boost_checker.d
 
 #creates an instance of the class "Bot", which will act as the connection to discord and sets the trigger to "?"
 bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_category = "Commands"))
+
 #finds initial timestamps for Spencer and Luka's matchlists
 def most_recent_timestamp_finder(account_id):
     initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
@@ -99,25 +100,45 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     #returns boosted score
     return round(boosted_score_kda_component + boosted_score_gold_diff_component, 2)
 
-#intializes these timestamps 
-most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
-
 #checks if there was a new game played every 5 seconds
 async def recent_game_loop(boosted_bot_channel):
     while True:     
         
-        #makes it so that these global variables can be changed by the function
-        global most_recent_timestamp_SPENCER
-        game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + resources.config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + resources.config.RIOT_API_KEY)
-        try:
-            if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
-                #sets a new most recent timestamp
-                most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
-                await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
+        db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+        cursor = db.cursor()
 
-        except Exception as e:
-            print(e)
+        #makes a list of summoners currently in database that need to be checked for boosted-ness
+        cursor.execute("SELECT * FROM boost_check")
+        database_list = cursor.fetchall()
+        database_list_length = len(database_list)
+
+        for k in range(database_list_length):
+            game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&beginTime=" + str(database_list[k][4])  + "&api_key=" + resources.config.RIOT_API_KEY)
+            try:
+                if game_idJSON.json()["matches"][0]["timestamp"] != database_list[k][4]:
+                    #updates the timestamp in the database for the summoner in question
+                    cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", (game_idJSON.json()["matches"][0]["timestamp"], database_list[k][0]))
+                    db.commit()
+                    await recent_game_checker(game_idJSON, database_list[k][0], boosted_bot_channel)
+
+            except Exception as e:
+                print(e)
+        
+        db.close()
+        
         await asyncio.sleep(10)
+
+
+        # game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + resources.config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + resources.config.RIOT_API_KEY)
+        # try:
+        #     if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
+        #         #sets a new most recent timestamp
+        #         most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
+        #         await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
+
+        # except Exception as e:
+        #     print(e)
+        # await asyncio.sleep(10)
 
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
