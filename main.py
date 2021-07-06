@@ -1,6 +1,5 @@
 import asyncio
 import discord
-from discord.errors import DiscordServerError
 from discord.ext import commands
 import requests
 from discord.ext.commands import Bot
@@ -216,8 +215,27 @@ async def boosted_list_adder(ctx, *, league_name):
         db.close()
         await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
 
+
+@bot.command(name = "boosted_remove", help = "THIS IS USED TO REMOVE A SUMMONER FROM THE BOOSTED CHECKER. WHY THO? W O O S")
+async def boosted_list_remover(ctx, *, league_name):
+    db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+    cursor = db.cursor()
+
+    #checks if summmoner is already in database
+    cursor.execute("SELECT * FROM boost_check WHERE summoner_name = ?", [league_name])
+
+    if cursor.fetchone() == None:
+        await ctx.channel.send("THIS SUMMONER IS NOT IN THE BOOSTED CHECKER. BRAIN DIFF ?????")
+        db.close()
+
+    else:
+        cursor.execute("DELETE FROM boost_check WHERE summoner_name = ?", [league_name])
+        db.commit()
+        db.close()
+        await ctx.channel.send(league_name + " WAS REMOVED FROM THE BOOSTED CHECKER. W O O S")
+
 #command to see the boosted leaderboard
-@bot.command(name = "boosted", help = "reveals the boosted leaderboard")
+@bot.command(name = "leaderboard", help = "reveals the boosted leaderboard")
 async def boosted_leaderboard(ctx):
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
