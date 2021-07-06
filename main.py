@@ -33,6 +33,25 @@ async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
                 team_ID = new_game_match_dataJSON.json()["participants"][i]["teamId"]
                 boosted_score = await boosted_score_calculator(new_game_match_dataJSON, i, team_ID)
+                
+                #finds data regarding current boosted score and number of games analyzed
+                db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+                cursor = db.cursor()
+                cursor.execute("SELECT current_boosted_score from boost_check where summoner_name = ?", (name))
+                current_boosted_score = cursor.fetchone()
+                cursor.execute("SELECT number_of_games_analyzed from boost_check where summoner_name = ?", (name))
+                number_of_games = cursor.fetchone()
+                
+                #calculates updated versions of this data
+                new_number_of_games = number_of_games + 1
+                new_boosted_score = ((current_boosted_score * number_of_games) + boosted_score) / (new_number_of_games)
+
+                #updates the database
+                cursor.execute("UPDATE boost_check SET current_boosted_score = ? where summoner_name = ?", (new_boosted_score, name))
+                cursor.execute("UPDATE boost_check SET number_of_games_analyzed = ? where summoner_name = ?", (new_number_of_games, name))
+                
+                db.commit()
+                db.close()
                 await boosted_bot_channel.send(name + " just won a game, with a boosted score of " + str(boosted_score) + "!")
             else:
                 await boosted_bot_channel.send(name + " just lost another game! LOLOLOLOLOLOL")
@@ -128,23 +147,10 @@ async def recent_game_loop(boosted_bot_channel):
         
         await asyncio.sleep(10)
 
-
-        # game_idJSON_SPENCER = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + resources.config.SPENCER_ACCOUNT_ID + "?queue=420&season=13&beginTime=" + str(most_recent_timestamp_SPENCER) + "&api_key=" + resources.config.RIOT_API_KEY)
-        # try:
-        #     if game_idJSON_SPENCER.json()["matches"][0]["timestamp"] != most_recent_timestamp_SPENCER:
-        #         #sets a new most recent timestamp
-        #         most_recent_timestamp_SPENCER = game_idJSON_SPENCER.json()["matches"][0]["timestamp"]
-        #         await recent_game_checker(game_idJSON_SPENCER, "Spencer", boosted_bot_channel)
-
-        # except Exception as e:
-        #     print(e)
-        # await asyncio.sleep(10)
-
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "find the current rank of an NA summoner")
-async def ranked_stats(ctx, league_name):
+async def ranked_stats(ctx, *, league_name):
     try:
-
         idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
         summoner_id = idJSON.json()["id"]
         ranked_dataJSON = requests.get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + summoner_id + "?api_key=" + resources.config.RIOT_API_KEY)
@@ -170,7 +176,7 @@ async def ranked_stats(ctx, league_name):
         await ctx.channel.send("GIVE ME A REAL NA SUMMONER! BRAIN GAP LOLOLOLLOL")
 
 @bot.command(name = "boosted_add", help = "add an NA summoner to the boosted checker")
-async def boosted_list_adder(ctx, league_name):
+async def boosted_list_adder(ctx, *, league_name):
 
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
@@ -192,7 +198,6 @@ async def boosted_list_adder(ctx, league_name):
             return
         
         try:
-            print(account_id)
             timestamp = most_recent_timestamp_finder(account_id)
 
         except Exception as e:
@@ -210,6 +215,42 @@ async def boosted_list_adder(ctx, league_name):
     else:
         db.close()
         await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
+
+#command to see the boosted leaderboard
+@bot.command(name = "boosted", help = "reveals the boosted leaderboard")
+async def boosted_leaderboard(ctx):
+    db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
+    cursor = db.cursor()
+    cursor.execute("SELECT summoner_name, number_of_games_analyzed, current_boosted_score FROM boost_check ORDER BY current_boosted_score DESC")
+    leaderboard_list = cursor.fetchall()
+    db.close()
+
+    #makes title
+    embed = discord.Embed(title = "Boosted Leaderboard")
+    
+    #makes summoner name column 
+    summoner_name_section = ""
+    for k in range(len(leaderboard_list)):
+        summoner_name_section += leaderboard_list[k][0] + "\n"
+
+    embed.add_field(name = "Summoner Name", value = summoner_name_section, inline = True)
+
+    #makes number of games analyzed column
+    number_of_games_analyzed_section = ""
+    for k in range(len(leaderboard_list)):
+        number_of_games_analyzed_section += str(leaderboard_list[k][1]) + "\n"
+    
+    embed.add_field(name = "# of Games Analyzed", value = number_of_games_analyzed_section, inline = True)
+
+    #makes boosted  score column
+    boosted_score_section = ""
+    for k in range(len(leaderboard_list)):
+        boosted_score_section += str(leaderboard_list[k][2]) + "\n"
+    
+    embed.add_field(name = "Boosted Score", value = boosted_score_section, inline = True)
+
+    await ctx.channel.send(embed = embed)
+
 
 @bot.event
 async def on_ready():
