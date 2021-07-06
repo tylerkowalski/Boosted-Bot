@@ -23,34 +23,44 @@ def most_recent_timestamp_finder(account_id):
 
 #called in recent_game_loop if a new ranked game has been detected
 async def recent_game_checker(game_idJSON, name, boosted_bot_channel):
+    print("got to recent game checker")
     new_game_id = game_idJSON.json()["matches"][0]["gameId"]
     new_game_champion_id = game_idJSON.json()["matches"][0]["champion"]
     new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + resources.config.RIOT_API_KEY)
+    print("got to new get request")
     #parses through stats of every summoner in the game to find the desired summoner
     for i in range(10):
         if new_game_match_dataJSON.json()["participants"][i]["championId"] == new_game_champion_id:
             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
                 team_ID = new_game_match_dataJSON.json()["participants"][i]["teamId"]
+                print("got to boosted score calculator")
                 boosted_score = await boosted_score_calculator(new_game_match_dataJSON, i, team_ID)
+                print("finished boosted score calculator")
                 
                 #finds data regarding current boosted score and number of games analyzed
                 db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
                 cursor = db.cursor()
-                cursor.execute("SELECT current_boosted_score from boost_check where summoner_name = ?", (name))
+                cursor.execute("SELECT current_boosted_score from boost_check where summoner_name = ?", [name])
                 current_boosted_score = cursor.fetchone()
-                cursor.execute("SELECT number_of_games_analyzed from boost_check where summoner_name = ?", (name))
+                cursor.execute("SELECT number_of_games_analyzed from boost_check where summoner_name = ?", [name])
                 number_of_games = cursor.fetchone()
-                
+                print("got prior boosted data")
+                print(number_of_games)
+                print(current_boosted_score)
                 #calculates updated versions of this data
-                new_number_of_games = number_of_games + 1
-                new_boosted_score = ((current_boosted_score * number_of_games) + boosted_score) / (new_number_of_games)
+                new_number_of_games = number_of_games[0] + 1
+                print("really, here?")
+                new_boosted_score = ((current_boosted_score[0] * number_of_games[0]) + boosted_score) / (new_number_of_games)
 
+                print("almost there!")
                 #updates the database
-                cursor.execute("UPDATE boost_check SET current_boosted_score = ? where summoner_name = ?", (new_boosted_score, name))
-                cursor.execute("UPDATE boost_check SET number_of_games_analyzed = ? where summoner_name = ?", (new_number_of_games, name))
-                
+                cursor.execute("UPDATE boost_check SET current_boosted_score = ? where summoner_name = ?", [new_boosted_score, name])
+                print("possible error 1")
+                cursor.execute("UPDATE boost_check SET number_of_games_analyzed = ? where summoner_name = ?", [new_number_of_games, name])
+                print("got through second execute")
                 db.commit()
                 db.close()
+                print("updated boosted data")
                 await boosted_bot_channel.send(name + " just won a game, with a boosted score of " + str(boosted_score) + "!")
             else:
                 await boosted_bot_channel.send(name + " just lost another game! LOLOLOLOLOLOL")
@@ -70,7 +80,13 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
             kills = game_match_data_JSON.json()["participants"][k]["stats"]["kills"]
             assists = game_match_data_JSON.json()["participants"][k]["stats"]["assists"]
             deaths = game_match_data_JSON.json()["participants"][k]["stats"]["deaths"]
-            kda = (kills + assists) / deaths
+            
+            #necessary because cannot divide by zero
+            if deaths != 0:
+                kda = (kills + assists) / deaths
+            else:
+                kda = kills + assists
+                
             kda_sum += kda
 
     kda_avg = kda_sum / 4
@@ -79,7 +95,10 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     player_deaths = game_match_data_JSON.json()["participants"][participants_index]["stats"]["deaths"]
     player_assists = game_match_data_JSON.json()["participants"][participants_index]["stats"]["assists"]
 
-    player_kda = (player_kills + player_assists) / player_deaths
+    if player_deaths != 0:
+        player_kda = (player_kills + player_assists) / player_deaths
+    else:
+        player_kda = player_kills + player_assists
 
     #finds how the summoner's kda compares to average on team, gives +/- score dependent on worse/better kda
     boosted_score_kda_component = ((kda_avg / player_kda) - 1) * 50
@@ -135,8 +154,10 @@ async def recent_game_loop(boosted_bot_channel):
             try:
                 if game_idJSON.json()["matches"][0]["timestamp"] != database_list[k][4]:
                     #updates the timestamp in the database for the summoner in question
-                    cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", (game_idJSON.json()["matches"][0]["timestamp"], database_list[k][0]))
+                    cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", [game_idJSON.json()["matches"][0]["timestamp"], database_list[k][0]])
                     db.commit()
+                    print("deteced timestamp difference")
+                    print(database_list[k][0])
                     await recent_game_checker(game_idJSON, database_list[k][0], boosted_bot_channel)
 
             except Exception as e:
@@ -147,7 +168,7 @@ async def recent_game_loop(boosted_bot_channel):
         await asyncio.sleep(10)
 
 #command to find current rank of given NA summoner
-@bot.command(name = "rank", help = "find the current rank of an NA summoner")
+@bot.command(name = "rank", help = "Find the current rank of an NA summoner")
 async def ranked_stats(ctx, *, league_name):
     try:
         idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
@@ -174,7 +195,7 @@ async def ranked_stats(ctx, *, league_name):
         print(e)
         await ctx.channel.send("GIVE ME A REAL NA SUMMONER! BRAIN GAP LOLOLOLLOL")
 
-@bot.command(name = "boosted_add", help = "add an NA summoner to the boosted checker")
+@bot.command(name = "boosted_add", help = "Add an NA summoner to the boosted checker")
 async def boosted_list_adder(ctx, *, league_name):
 
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
@@ -216,7 +237,7 @@ async def boosted_list_adder(ctx, *, league_name):
         await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
 
 
-@bot.command(name = "boosted_remove", help = "THIS IS USED TO REMOVE A SUMMONER FROM THE BOOSTED CHECKER. WHY THO? W O O S")
+@bot.command(name = "boosted_remove", help = "Use to remove a summoner from the boosted checker, WOOS!")
 async def boosted_list_remover(ctx, *, league_name):
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
@@ -232,10 +253,10 @@ async def boosted_list_remover(ctx, *, league_name):
         cursor.execute("DELETE FROM boost_check WHERE summoner_name = ?", [league_name])
         db.commit()
         db.close()
-        await ctx.channel.send(league_name + " WAS REMOVED FROM THE BOOSTED CHECKER. W O O S")
+        await ctx.channel.send(league_name + " WAS REMOVED FROM THE BOOSTED CHECKER. W O O S!")
 
 #command to see the boosted leaderboard
-@bot.command(name = "leaderboard", help = "reveals the boosted leaderboard")
+@bot.command(name = "leaderboard", help = "Reveals the boosted leaderboard")
 async def boosted_leaderboard(ctx):
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
@@ -307,6 +328,7 @@ async def on_ready():
         updated_timestamp = most_recent_timestamp_finder(database_list[k][1])
         cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", (updated_timestamp, database_list[k][0]))
         db.commit()
+
     db.close()
 
     #adds the game checking loop into the event loop
