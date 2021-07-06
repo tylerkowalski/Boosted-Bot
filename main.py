@@ -63,7 +63,7 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     player_kda = (player_kills + player_assists) / player_deaths
 
     #finds how the summoner's kda compares to average on team, gives +/- score dependent on worse/better kda
-    boosted_score_kda_component = ((kda_avg / player_kda) - 1) * 100
+    boosted_score_kda_component = ((kda_avg / player_kda) - 1) * 50
 
     #finding average of gold/min deltas for summoner
     summoner_gold_per_min_sum = 0
@@ -94,10 +94,10 @@ async def boosted_score_calculator(game_match_data_JSON, participants_index, tea
     summoner_opponent_gold_per_min_avg = summoner_opponent_gold_per_min_sum / length_gold_per_min_deltas
 
     #finds how the summoner's gold compares to lane opponent, gives +/- score dependent on less/more gold
-    boosted_score_gold_diff_component = ((summoner_opponent_gold_per_min_avg / summoner_gold_per_min_avg) - 1) * 100
+    boosted_score_gold_diff_component = ((summoner_opponent_gold_per_min_avg / summoner_gold_per_min_avg) - 1) * 50
 
     #returns boosted score
-    return round(boosted_score_kda_component + boosted_score_gold_diff_component, 4)
+    return round(boosted_score_kda_component + boosted_score_gold_diff_component, 2)
 
 #intializes these timestamps 
 most_recent_timestamp_SPENCER = most_recent_timestamp_finder(resources.config.SPENCER_ACCOUNT_ID)
@@ -210,12 +210,19 @@ async def on_ready():
         )
             """)
     db.commit()
+
+    #updates most recent timestamps in database on startup
+    cursor.execute("SELECT * FROM boost_check")
+    database_list = cursor.fetchall()
+    database_list_length = len(database_list)
+    for k in range(database_list_length):
+        updated_timestamp = most_recent_timestamp_finder(database_list[k][1])
+        cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", (updated_timestamp, database_list[k][0]))
+        db.commit()
     db.close()
 
     #adds the game checking loop into the event loop
     bot.loop.create_task(recent_game_loop(boosted_bot_channel))
-    
-    #need to update most recent timestamps on startup
 
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
