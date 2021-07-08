@@ -9,6 +9,7 @@ import os
 import config
 
 
+
 #creates paths necessary to access the boost_checker database in src
 CURRENT_DIR = os.path.dirname(__file__)
 BOOST_CHECKER_DIR_PATH = os.path.join(CURRENT_DIR, "boost_checker.db")
@@ -339,6 +340,7 @@ async def on_ready():
         timestamp INTEGER 
         )
             """)
+
     db.commit()
 
     #updates most recent timestamps in database on startup
