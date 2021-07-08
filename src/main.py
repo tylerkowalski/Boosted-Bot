@@ -68,75 +68,27 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
     boosted_score_kp_component = ((team_kp_avg / player_kp) - 1) * 50
 
 
-    #comparing gold of summoner to laner
-    summoner_total_gold = 0
-    summmoner_opponent_total_gold = 0
-    length_gold_per_min_deltas = len(game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"])
-
-    #the following keys that refer to specfic time deltas for gold diff in RIOT API (needed because some games don't have certain gold deltas as games could be shorter or longer)
-    gold_diff_list = ["0-10", "10-20", "20-30", "30-end"]
-
-    #find the total gold of the summoner in question
-    #different elements in "goldPerMinDeltas" dependent on different length games, thus is necessary:
-    game_duration = game_match_data_JSON.json()["gameDuration"]
-    if length_gold_per_min_deltas == 2:
-
-        #calculation based on remaining time within the time delta 
-        for k in range(length_gold_per_min_deltas - 1):
-            summoner_total_gold += (10 * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"][gold_diff_list[k]])
-
-        #adds the remaining gold outside of number of gold deltas - 1    
-        summoner_total_gold += ((game_duration - 1000)/100) * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"]["10-20"]
-
-    elif length_gold_per_min_deltas == 3:
-        
-        for k in range(length_gold_per_min_deltas - 1):
-            summoner_total_gold += (10 * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"][gold_diff_list[k]])
-        
-        summoner_total_gold += ((game_duration - 2000)/100) * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"]["20-30"]
-
-    else:
-
-        for k in range(length_gold_per_min_deltas - 1):
-            summoner_total_gold += (10 * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"][gold_diff_list[k]])
-        
-        summoner_total_gold += ((game_duration - 3000)/100) * game_match_data_JSON.json()["participants"][participants_index]["timeline"]["goldPerMinDeltas"]["30-end"]
-
+    #finding summoner's gold
+    summoner_gold = game_match_data_JSON.json()["participants"][participants_index]["stats"]["goldEarned"]
+    
     #finding the total gold of the summoner's lane opponent
     summonner_role = game_match_data_JSON.json()["participants"][participants_index]["timeline"]["role"]
     summoner_lane = game_match_data_JSON.json()["participants"][participants_index]["timeline"]["lane"]
+    
     
     #finds the index k in "participants" that corresponds to the summoner's lane opponent 
     for k in range(10):
         if game_match_data_JSON.json()["participants"][k]["timeline"]["role"] == summonner_role:
             if game_match_data_JSON.json()["participants"][k]["timeline"]["lane"] == summoner_lane:
                 if k != participants_index:
-
-                    if length_gold_per_min_deltas == 2:
-
-                        #calculation based on remaining time within the time delta 
-                        for i in range(length_gold_per_min_deltas - 1):
-                            summmoner_opponent_total_gold += (10 * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"][gold_diff_list[i]])
-
-                        #adds the remaining gold outside of number of gold deltas - 1    
-                        summmoner_opponent_total_gold += ((game_duration - 1000)/100) * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"]["10-20"]
-
-                    elif length_gold_per_min_deltas == 3:
-        
-                        for i in range(length_gold_per_min_deltas - 1):
-                            summmoner_opponent_total_gold += (10 * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"][gold_diff_list[i]])
-        
-                        summmoner_opponent_total_gold += ((game_duration - 2000)/100) * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"]["20-30"]
-
-                    else:
-
-                        for i in range(length_gold_per_min_deltas - 1):
-                            summmoner_opponent_total_gold += (10 * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"][gold_diff_list[i]])
-        
-                        summmoner_opponent_total_gold += ((game_duration - 3000)/100) * game_match_data_JSON.json()["participants"][k]["timeline"]["goldPerMinDeltas"]["30-end"]  
-
+                    #finds index which corresponds to summoner's opponent
+                    opponent_index = k
+                    break
+    
+    #finds summoner's opponent's  gold
+    summoner_opponent_gold = game_match_data_JSON.json()["participants"][opponent_index]["stats"]["goldEarned"]
     #finds how the summoner's gold compares to lane opponent, gives +/- score dependent on less/more gold
-    boosted_score_gold_diff_component = ((summmoner_opponent_total_gold / summoner_total_gold) - 1) * 50
+    boosted_score_gold_diff_component = ((summoner_opponent_gold/ summoner_gold) - 1) * 50
 
     #returns boosted score
     return round(boosted_score_kp_component + boosted_score_gold_diff_component, 2)
