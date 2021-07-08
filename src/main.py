@@ -6,65 +6,26 @@ from discord.ext.commands import Bot
 import sqlite3
 import os
 #imports the file with the API keys and other confidential information
-import resources.config
+import config
 
-#creates paths necessary to access the boost_checker database in the resources file
+
+#creates paths necessary to access the boost_checker database in src
 CURRENT_DIR = os.path.dirname(__file__)
-BOOST_CHECKER_DIR_PATH = os.path.join(CURRENT_DIR, "resources", "boost_checker.db")
+BOOST_CHECKER_DIR_PATH = os.path.join(CURRENT_DIR, "boost_checker.db")
+
+
 
 #creates an instance of the class "Bot", which will act as the connection to discord and sets the trigger to "?"
 bot = Bot(command_prefix= "?", help_command = commands.DefaultHelpCommand(no_category = "Commands"))
 
-#finds initial timestamps for Spencer and Luka's matchlists
+
+
+#finds initial timestamps for summoners in the boost_check database
 def most_recent_timestamp_finder(account_id):
-    initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
+    initial_JSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + account_id + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
     return initial_JSON.json()["matches"][0]["timestamp"]
 
 
-# #called in recent_game_loop if a new ranked game has been detected
-# def recent_game_checker(game_idJSON, name, boosted_bot_channel):
-#     print("got to recent game checker")
-#     new_game_id = game_idJSON.json()["matches"][0]["gameId"]
-#     new_game_champion_id = game_idJSON.json()["matches"][0]["champion"]
-#     new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + resources.config.RIOT_API_KEY)
-#     print("got to new get request")
-#     #parses through stats of every summoner in the game to find the desired summoner
-#     for i in range(10):
-#         if new_game_match_dataJSON.json()["participants"][i]["championId"] == new_game_champion_id:
-#             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
-#                 team_ID = new_game_match_dataJSON.json()["participants"][i]["teamId"]
-#                 print("got to boosted score calculator")
-#                 boosted_score = boosted_score_calculator(new_game_match_dataJSON, i, team_ID)
-#                 print("finished boosted score calculator")
-                
-#                 #finds data regarding current boosted score and number of games analyzed
-#                 db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
-#                 cursor = db.cursor()
-#                 cursor.execute("SELECT current_boosted_score from boost_check where summoner_name = ?", [name])
-#                 current_boosted_score = cursor.fetchone()
-#                 cursor.execute("SELECT number_of_games_analyzed from boost_check where summoner_name = ?", [name])
-#                 number_of_games = cursor.fetchone()
-#                 print("got prior boosted data")
-#                 print(number_of_games)
-#                 print(current_boosted_score)
-#                 #calculates updated versions of this data
-#                 new_number_of_games = number_of_games[0] + 1
-#                 print("really, here?")
-#                 new_boosted_score = round(((current_boosted_score[0] * number_of_games[0]) + boosted_score) / (new_number_of_games), 2)
-
-#                 print("almost there!")
-#                 #updates the database
-#                 cursor.execute("UPDATE boost_check SET current_boosted_score = ? where summoner_name = ?", [new_boosted_score, name])
-#                 print("possible error 1")
-#                 cursor.execute("UPDATE boost_check SET number_of_games_analyzed = ? where summoner_name = ?", [new_number_of_games, name])
-#                 print("got through second execute")
-#                 db.commit()
-#                 db.close()
-#                 print("updated boosted data")
-#                 await boosted_bot_channel.send(name + " just won a game, with a boosted score of " + str(boosted_score) + "!")
-#             else:
-#                 await boosted_bot_channel.send(name + " just lost another game! LOLOLOLOLOLOL")
-#             break
 
 #is only called when a game is won, shows the respective summoner's impact in that win
 #the higher the boosted the score, the more boosted you are (postive is boosted, negative is not boosted)
@@ -78,7 +39,13 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
             pass
         else:
             team_total_kills += game_match_data_JSON.json()["participants"][k]["stats"]["kills"]
-        
+    
+    #to ensure no division by zero
+    if team_total_kills == 0:
+        team_total_kills = 1
+    else:
+        pass
+
     for i in range(10):
         #doesn't include respective summoner's kp in sum to be more accurate in boosted score
         if game_match_data_JSON.json()["participants"][k]["teamId"] != team_ID or i == participants_index:
@@ -86,10 +53,17 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
         else:
             team_kp_sum += 100 * ((game_match_data_JSON.json()["participants"][k]["stats"]["kills"] + game_match_data_JSON.json()["participants"][k]["stats"]["assists"])/team_total_kills)
 
+    #calculates average kp of the summoner's teammates, excluding the summoner in question
     team_kp_avg = team_kp_sum / 4
 
     player_kp = 100 * ((game_match_data_JSON.json()["participants"][participants_index]["stats"]["kills"] + game_match_data_JSON.json()["participants"][participants_index]["stats"]["assists"])/team_total_kills)
     
+    #to ensure no division by zero
+    if player_kp == 0:
+        player_kp = 1
+    else:
+        pass
+
     #finds how the summoner's kp compares to average on team (exclusive), gives +/- score dependent on worse/better kp
     boosted_score_kp_component = ((team_kp_avg / player_kp) - 1) * 50
 
@@ -103,7 +77,7 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
     gold_diff_list = ["0-10", "10-20", "20-30", "30-end"]
 
     #find the total gold of the summoner in question
-    #different elements in different length games, thus is necessary:
+    #different elements in "goldPerMinDeltas" dependent on different length games, thus is necessary:
     game_duration = game_match_data_JSON.json()["gameDuration"]
     if length_gold_per_min_deltas == 2:
 
@@ -132,6 +106,7 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
     summonner_role = game_match_data_JSON.json()["participants"][participants_index]["timeline"]["role"]
     summoner_lane = game_match_data_JSON.json()["participants"][participants_index]["timeline"]["lane"]
     
+    #finds the index k in "participants" that corresponds to the summoner's lane opponent 
     for k in range(10):
         if game_match_data_JSON.json()["participants"][k]["timeline"]["role"] == summonner_role:
             if game_match_data_JSON.json()["participants"][k]["timeline"]["lane"] == summoner_lane:
@@ -166,10 +141,13 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
     #returns boosted score
     return round(boosted_score_kp_component + boosted_score_gold_diff_component, 2)
 
-#checks if there was a new game played every 5 seconds
+
+
+#checks if there was a new game played 
 async def recent_game_loop(boosted_bot_channel):
     while True:     
         
+        #connects to the database
         db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
         cursor = db.cursor()
 
@@ -180,86 +158,57 @@ async def recent_game_loop(boosted_bot_channel):
 
         for k in range(database_list_length):
         
-            # game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&beginTime=" + str(database_list[k][4])  + "&api_key=" + resources.config.RIOT_API_KEY)
-            game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
+            #could query with the beginTime = timestamp_in_database, but I find that with this extra query, RIOT takes longer to update the timestamps, for whatever reason. As a result, this is a better method
+            game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&api_key=" + config.RIOT_API_KEY)
             try:
+                #finds if a new game has been played based on timestamps
                 if game_idJSON.json()["matches"][0]["timestamp"] > database_list[k][4]:
                     #updates the timestamp in the database for the summoner in question
                     cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", [game_idJSON.json()["matches"][0]["timestamp"], database_list[k][0]])
                     db.commit()
 
-                    cursor.execute("SELECT timestamp from boost_check WHERE summoner_name = ?", [database_list[k][0]])
-                    print(cursor.fetchone())
-                    print(database_list[k][4])
-
-
-                    print("detected timestamp difference")
-
                     new_game_id = game_idJSON.json()["matches"][0]["gameId"]
                     new_game_champion_id = game_idJSON.json()["matches"][0]["champion"]
-                    new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + resources.config.RIOT_API_KEY)
-                    print("got to new get request")
+                    new_game_match_dataJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matches/" + str(new_game_id) + "?api_key=" + config.RIOT_API_KEY)
+                    
 
                     #parses through stats of every summoner in the game to find the desired summoner
                     for i in range(10):
                         if new_game_match_dataJSON.json()["participants"][i]["championId"] == new_game_champion_id:
                             if new_game_match_dataJSON.json()["participants"][i]["stats"]["win"] == True:
                                 team_ID = new_game_match_dataJSON.json()["participants"][i]["teamId"]
-                                print("got to boosted score calculator")
                                 boosted_score = boosted_score_calculator(new_game_match_dataJSON, i, team_ID)
-                                print("finished boosted score calculator")
 
                                 #finds data regarding current boosted score and number of games analyzed
+                                #connects to the boost_check database
                                 db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
                                 cursor = db.cursor()
                                 cursor.execute("SELECT current_boosted_score from boost_check where summoner_name = ?", [database_list[k][0]])
                                 current_boosted_score = cursor.fetchone()
                                 cursor.execute("SELECT number_of_games_analyzed from boost_check where summoner_name = ?", [database_list[k][0]])
                                 number_of_games = cursor.fetchone()
-                                print("got prior boosted data")
-                                print(number_of_games)
-                                print(current_boosted_score)
                                 #calculates updated versions of this data
                                 new_number_of_games = number_of_games[0] + 1
-                                print("really, here?")
                                 new_boosted_score = round(((current_boosted_score[0] * number_of_games[0]) + boosted_score) / (new_number_of_games), 2)
 
-                                print("almost there!")
                                 #updates the database
                                 cursor.execute("UPDATE boost_check SET current_boosted_score = ? where summoner_name = ?", [new_boosted_score, database_list[k][0]])
-                                print("possible error 1")
                                 cursor.execute("UPDATE boost_check SET number_of_games_analyzed = ? where summoner_name = ?", [new_number_of_games, database_list[k][0]])
-                                print("got through second execute")
                                 db.commit()
                                 db.close()
-                                print("updated boosted data")
 
                                 await boosted_bot_channel.send(database_list[k][0] + " just won a game, with a boosted score of " + str(boosted_score) + "!")
                             
                             else:
                                 await boosted_bot_channel.send(database_list[k][0] + " just lost another game! LOLOLOLOLOLOL")
 
+                            print("successfully detected and analyzed a summoner in boost_check")
                             break
 
                     
             except Exception as e:
                 print(e)
 
-                    # recent_game_checker(game_idJSON, database_list[k][0], boosted_bot_channel)
-            # game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&beginTime=" + str(database_list[k][4])  + "&api_key=" + resources.config.RIOT_API_KEY)
-            # # game_idJSON = requests.get("https://na1.api.riotgames.com/lol/match/v4/matchlists/by-account/" + str(database_list[k][1]) + "?queue=420&season=13&api_key=" + resources.config.RIOT_API_KEY)
-            # try:
-            #     if game_idJSON.json()["matches"][0]["timestamp"] != database_list[k][4]:
-            #         #updates the timestamp in the database for the summoner in question
-            #         cursor.execute("UPDATE boost_check SET timestamp = ? WHERE summoner_name = ?", [game_idJSON.json()["matches"][0]["timestamp"], database_list[k][0]])
-            #         db.commit()
-            #         print("detected timestamp difference")
-            #         print(database_list[k][0])
-            #         await recent_game_checker(game_idJSON, database_list[k][0], boosted_bot_channel)
-                    
-            # except Exception as e:
-            #     print(e)
-            
         #once at the end of the loop, the list from the database is updated
         db.close()
         
@@ -272,21 +221,19 @@ async def recent_game_loop(boosted_bot_channel):
             wait_time = 1.6
 
         await asyncio.sleep(wait_time)
-            #1.6s/request = 75requests/120seconds < 100requests/120seconds cap of RIOT API (leaves leeway for other requests)
-            # await asyncio.sleep(1.6)
         
         db.close()
         #once at the end of the loop, the list from the database is updated
+
 
 
 #command to find current rank of given NA summoner
 @bot.command(name = "rank", help = "Find the current rank of an NA summoner")
 async def ranked_stats(ctx, *, league_name):
     try:
-        print("hello?")
-        idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
+        idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + config.RIOT_API_KEY)
         summoner_id = idJSON.json()["id"]
-        ranked_dataJSON = requests.get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + summoner_id + "?api_key=" + resources.config.RIOT_API_KEY)
+        ranked_dataJSON = requests.get("https://na1.api.riotgames.com/lol/league/v4/entries/by-summoner/" + summoner_id + "?api_key=" + config.RIOT_API_KEY)
         ranked_dataJSON = ranked_dataJSON.json()
 
         #finds the index of the dictionary in the JSON file containing stats on solo queue
@@ -302,15 +249,17 @@ async def ranked_stats(ctx, *, league_name):
         LP = str(ranked_dataJSON[index]["leaguePoints"])
         win_percentage = str(round((float(wins) / (float(wins) + float(losses))* 100), 2))
 
-        print("got here")
         await ctx.channel.send(league_name + " is " + tier + " " + division + " " + LP + "LP" + "\n" + wins + " wins and " + losses + " losses with a " + win_percentage + "% win percentage" + "\nsmells like BOOOOOOOOOOOOOOOOOSTED")
 
     except Exception as e:
         print(e)
         await ctx.channel.send("GIVE ME A REAL NA SUMMONER! BRAIN GAP LOLOLOLLOL")
 
+
+
 @bot.command(name = "boosted_add", help = "Add an NA summoner to the boosted checker")
 async def boosted_list_adder(ctx, *, league_name):
+    #connects to the boost_check database
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
 
@@ -319,7 +268,7 @@ async def boosted_list_adder(ctx, *, league_name):
     if cursor.fetchone() == None:
         #checks if is a real NA summoner and finds account id
         try:
-            idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + resources.config.RIOT_API_KEY)
+            idJSON = requests.get("https://na1.api.riotgames.com/lol/summoner/v4/summoners/by-name/" + league_name + "?api_key=" + config.RIOT_API_KEY)
             account_id = idJSON.json()["accountId"]        
 
         except Exception as e:
@@ -350,14 +299,17 @@ async def boosted_list_adder(ctx, *, league_name):
         await ctx.channel.send("THIS SUMMONER IS ALREADY ADDED. INTING INTING!!!")
 
 
+
 @bot.command(name = "boosted_remove", help = "Use to remove a summoner from the boosted checker, WOOS!")
 async def boosted_list_remover(ctx, *, league_name):
+    #connects to the boost_check database
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
 
     #checks if summmoner is already in database
     cursor.execute("SELECT * FROM boost_check WHERE summoner_name = ?", [league_name])
 
+    #checks if summoner is in the boosted checker
     if cursor.fetchone() == None:
         await ctx.channel.send("THIS SUMMONER IS NOT IN THE BOOSTED CHECKER. BRAIN DIFF ?????")
         db.close()
@@ -368,9 +320,12 @@ async def boosted_list_remover(ctx, *, league_name):
         db.close()
         await ctx.channel.send(league_name + " WAS REMOVED FROM THE BOOSTED CHECKER. W O O S!")
 
+
+
 #command to see the boosted leaderboard
 @bot.command(name = "leaderboard", help = "Reveals the boosted leaderboard")
 async def boosted_leaderboard(ctx):
+    #connects to the boost_check database
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
 
@@ -402,14 +357,15 @@ async def boosted_leaderboard(ctx):
     
         embed.add_field(name = "# of Games Analyzed", value = number_of_games_analyzed_section, inline = True)
 
-        #makes boosted  score column
+        #makes boosted score column
         boosted_score_section = ""
         for k in range(len(leaderboard_list)):
             boosted_score_section += str(leaderboard_list[k][2]) + "\n"
     
-        embed.add_field(name = "Boosted Score", value = boosted_score_section, inline = True)
+        embed.add_field(name = "Average Boosted Score", value = boosted_score_section, inline = True)
 
         await ctx.channel.send(embed = embed)
+
 
 
 @bot.event
@@ -417,9 +373,9 @@ async def on_ready():
     await bot.change_presence(activity = discord.Activity(name = "FINDING THE MOST BOOSTED SWINE", type = 5))
 
     #creates the output channel for the bot
-    boosted_bot_channel = bot.get_channel(resources.config.BOOSTED_BOT_CHANNEL_ID)
+    boosted_bot_channel = bot.get_channel(config.BOOSTED_BOT_CHANNEL_ID)
 
-    #creates boost_check database if not already existing in resources directory
+    #creates boost_check database if not already existing 
     db = sqlite3.connect(BOOST_CHECKER_DIR_PATH)
     cursor = db.cursor()
     cursor.execute("""
@@ -449,7 +405,6 @@ async def on_ready():
 
     #prints in terminal
     print("BOOSTED BOT IS ONLINE")
-    print("hello")
 
 #connects the bot to discord and creates the event loop (bot)
-bot.run(resources.config.DISCORD_API_KEY)
+bot.run(config.DISCORD_API_KEY)
