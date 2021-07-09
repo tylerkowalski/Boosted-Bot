@@ -40,6 +40,7 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
             pass
         else:
             team_total_kills += game_match_data_JSON.json()["participants"][k]["stats"]["kills"]
+            
     
     #to ensure no division by zero
     if team_total_kills == 0:
@@ -49,22 +50,22 @@ def boosted_score_calculator(game_match_data_JSON, participants_index, team_ID):
 
     for i in range(10):
         #doesn't include respective summoner's kp in sum to be more accurate in boosted score
-        if game_match_data_JSON.json()["participants"][k]["teamId"] != team_ID or i == participants_index:
+        if game_match_data_JSON.json()["participants"][i]["teamId"] != team_ID or i == participants_index:
             pass
         else:
-            team_kp_sum += 100 * ((game_match_data_JSON.json()["participants"][k]["stats"]["kills"] + game_match_data_JSON.json()["participants"][k]["stats"]["assists"])/team_total_kills)
+            team_kp_sum += ((game_match_data_JSON.json()["participants"][i]["stats"]["kills"] + game_match_data_JSON.json()["participants"][i]["stats"]["assists"])/team_total_kills)
 
     #calculates average kp of the summoner's teammates, excluding the summoner in question
     team_kp_avg = team_kp_sum / 4
 
-    player_kp = 100 * ((game_match_data_JSON.json()["participants"][participants_index]["stats"]["kills"] + game_match_data_JSON.json()["participants"][participants_index]["stats"]["assists"])/team_total_kills)
+    player_kp = ((game_match_data_JSON.json()["participants"][participants_index]["stats"]["kills"] + game_match_data_JSON.json()["participants"][participants_index]["stats"]["assists"])/team_total_kills)
     
     #to ensure no division by zero
     if player_kp == 0:
         player_kp = 1
     else:
         pass
-
+    
     #finds how the summoner's kp compares to average on team (exclusive), gives +/- score dependent on worse/better kp
     boosted_score_kp_component = ((team_kp_avg / player_kp) - 1) * 50
 
